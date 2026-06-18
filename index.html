@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tic Tac Toe 🌸</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #fdf2f8; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+  .game-wrap { display:flex; flex-direction:column; align-items:center; padding:2rem 1rem; font-family:'Nunito',sans-serif; }
+  .hanger { width:44px; height:20px; background:#f9a8d4; border-radius:10px 10px 0 0; margin-bottom:-2px; position:relative; z-index:2; }
+  .hanger::before { content:''; position:absolute; top:5px; left:50%; transform:translateX(-50%); width:14px; height:14px; border-radius:50%; background:#f472b6; }
+  .board-card { background:#fce7f3; border-radius:28px; padding:20px 20px 28px; width:290px; border:3px solid #fbcfe8; }
+  .title { font-size:17px; font-weight:900; color:#db2777; margin-bottom:4px; letter-spacing:1px; text-align:center; }
+  .hearts { font-size:13px; margin-bottom:12px; color:#f9a8d4; letter-spacing:3px; text-align:center; }
+  .score { display:flex; gap:10px; margin-bottom:14px; justify-content:center; }
+  .score-box { background:#fff; border-radius:14px; padding:6px 16px; text-align:center; border:2px solid #fbcfe8; }
+  .score-box .label { font-size:11px; font-weight:800; letter-spacing:1px; text-transform:uppercase; color:#f472b6; }
+  .score-box .num { font-size:22px; font-weight:900; margin-top:2px; color:#db2777; }
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; position:relative; }
+  .cell { background:#fff; border-radius:16px; width:76px; height:76px; display:flex; align-items:center; justify-content:center; cursor:pointer; position:relative; transition:background 0.15s, transform 0.1s; border:2px solid #fbcfe8; }
+  .cell:hover:not(.taken) { background:#fdf2f8; transform:scale(1.05); border-color:#f9a8d4; }
+  .cell.taken { cursor:default; }
+  .cell.taken:hover { transform:none; }
+  .cell svg { width:40px; height:40px; }
+  .dot { width:8px; height:8px; background:#fbcfe8; border-radius:50%; position:absolute; }
+  .dot.br { bottom:-14px; right:50%; transform:translateX(50%); }
+  .dot.bc { bottom:-14px; left:50%; transform:translateX(-50%); }
+  .status { color:#db2777; font-size:15px; font-weight:800; margin:16px 0 10px; letter-spacing:0.5px; text-align:center; }
+  .reset-btn { margin-top:10px; background:#f9a8d4; border:none; border-radius:14px; color:#831843; font-family:'Nunito',sans-serif; font-size:13px; font-weight:800; padding:9px 28px; cursor:pointer; transition:background 0.15s, transform 0.1s; display:block; margin-left:auto; margin-right:auto; }
+  .reset-btn:hover { background:#f472b6; transform:scale(1.04); color:#fff; }
+  .legs { display:flex; justify-content:space-between; width:200px; }
+  .leg { width:12px; height:24px; background:#f9a8d4; border-radius:0 0 8px 8px; }
+  .win-line { stroke:#f472b6; stroke-width:5; stroke-linecap:round; opacity:0; transition:opacity 0.3s; }
+  .win-line.show { opacity:1; }
+</style>
+</head>
+<body>
+<div class="game-wrap">
+  <div class="hanger"></div>
+  <div class="board-card">
+    <div class="hearts">♡ ♡ ♡</div>
+    <div class="title">Tic Tac Toe</div>
+    <div class="score">
+      <div class="score-box"><div class="label">X</div><div class="num" id="sx">0</div></div>
+      <div class="score-box"><div class="label">Draw</div><div class="num" id="sd">0</div></div>
+      <div class="score-box"><div class="label">O</div><div class="num" id="so">0</div></div>
+    </div>
+    <div class="grid" id="grid">
+      <svg style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:5;" viewBox="0 0 248 248">
+        <line id="win-line" class="win-line" x1="0" y1="0" x2="0" y2="0"/>
+      </svg>
+    </div>
+    <div class="status" id="status">✨ X's turn ✨</div>
+    <button class="reset-btn" onclick="resetGame()">New game ♡</button>
+  </div>
+  <div class="legs"><div class="leg"></div><div class="leg"></div></div>
+</div>
+<script>
+  const WINS=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  const WIN_COORDS=[
+    [{x:12,y:38},{x:236,y:38}],
+    [{x:12,y:124},{x:236,y:124}],
+    [{x:12,y:210},{x:236,y:210}],
+    [{x:38,y:12},{x:38,y:236}],
+    [{x:124,y:12},{x:124,y:236}],
+    [{x:210,y:12},{x:210,y:236}],
+    [{x:12,y:12},{x:236,y:236}],
+    [{x:236,y:12},{x:12,y:236}],
+  ];
+  let board=Array(9).fill(null),turn='X',scores={X:0,O:0,D:0},over=false;
+
+  function renderBoard(){
+    const g=document.getElementById('grid');
+    g.querySelectorAll('.cell').forEach(e=>e.remove());
+    for(let i=0;i<9;i++){
+      const c=document.createElement('div');
+      c.className='cell'+(board[i]?' taken':'');
+      c.setAttribute('aria-label',board[i]||'empty cell '+(i+1));
+      c.onclick=()=>play(i);
+      if(board[i]==='X') c.innerHTML=svgX();
+      else if(board[i]==='O') c.innerHTML=svgO();
+      if(i===2||i===5){const d=document.createElement('div');d.className='dot br';c.appendChild(d);}
+      if(i===3||i===6){const d=document.createElement('div');d.className='dot bc';c.appendChild(d);}
+      g.appendChild(c);
+    }
+  }
+  function svgX(){
+    return `<svg viewBox="0 0 44 44"><line x1="10" y1="10" x2="34" y2="34" stroke="#f472b6" stroke-width="5.5" stroke-linecap="round"/><line x1="34" y1="10" x2="10" y2="34" stroke="#f472b6" stroke-width="5.5" stroke-linecap="round"/></svg>`;
+  }
+  function svgO(){
+    return `<svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="13" fill="none" stroke="#db2777" stroke-width="5.5"/></svg>`;
+  }
+  function play(i){
+    if(over||board[i]) return;
+    board[i]=turn;
+    renderBoard();
+    const w=checkWin();
+    if(w!==null){
+      over=true; scores[turn]++;
+      updateScores();
+      document.getElementById('status').textContent=turn+' wins! 🌸';
+      drawWinLine(w); return;
+    }
+    if(board.every(b=>b)){
+      over=true; scores.D++;
+      updateScores();
+      document.getElementById('status').textContent="It's a draw! 💕";
+      return;
+    }
+    turn=turn==='X'?'O':'X';
+    document.getElementById('status').textContent='✨ '+turn+"'s turn ✨";
+  }
+  function checkWin(){
+    for(let i=0;i<WINS.length;i++){
+      const[a,b,c]=WINS[i];
+      if(board[a]&&board[a]===board[b]&&board[a]===board[c]) return i;
+    }
+    return null;
+  }
+  function drawWinLine(wi){
+    const l=document.getElementById('win-line');
+    const co=WIN_COORDS[wi];
+    l.setAttribute('x1',co[0].x);l.setAttribute('y1',co[0].y);
+    l.setAttribute('x2',co[1].x);l.setAttribute('y2',co[1].y);
+    setTimeout(()=>l.classList.add('show'),50);
+  }
+  function updateScores(){
+    document.getElementById('sx').textContent=scores.X;
+    document.getElementById('so').textContent=scores.O;
+    document.getElementById('sd').textContent=scores.D;
+  }
+  function resetGame(){
+    board=Array(9).fill(null);turn='X';over=false;
+    const l=document.getElementById('win-line');
+    l.classList.remove('show');
+    document.getElementById('status').textContent="✨ X's turn ✨";
+    renderBoard();
+  }
+  renderBoard();
+</script>
+</body>
+</html>
